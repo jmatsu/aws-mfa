@@ -20,6 +20,22 @@ Options:
 --without-mfa-profile  A aws profile used to issue a new session.
 ```
 
+--mfa-profile | --without-mfa-profile | A profile to issue a new session
+:--- |:---|:--- 
+`<null>` | `<null>` | N/A
+"foo" | `<null>`| "foo-without-mfa"
+"foo" | "bar" | "bar"
+`<null>` | "bar" | N/A
+
+`--mfa-profile` is required but the value of `--mfa-profile` defaults to `AWS_PROFILE` environment variable unless specified.
+
+AWS_PROFILE | --mfa-profile | A profile for mfa-required APIs
+:--- |:---|:--- 
+`<null>` | `<null>` | N/A
+"foo" | `<null>` | "foo"
+"foo" | "bar" | "bar"
+`<null>` | "bar" | "bar"
+
 todo:
 
 Allow to specify
