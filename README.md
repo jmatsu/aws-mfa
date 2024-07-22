@@ -18,6 +18,7 @@ Options:
 -m, --minutes          Specify how may minues a new session works.
 --mfa-profile          A aws profile that will have a new session.
 --without-mfa-profile  A aws profile used to issue a new session.
+--env                  Specify this if you would like to to use AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY instead of specifying an aws profile.
 ```
 
 --mfa-profile | --without-mfa-profile | A profile to issue a new session
