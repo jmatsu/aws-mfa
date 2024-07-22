@@ -19,6 +19,7 @@ Options:
 -m, --minutes          Specify how may minues a new session works.
 --mfa-profile          A aws profile that will have a new session.
 --without-mfa-profile  A aws profile used to issue a new session.
+--env                  Specify this if you would like to to use AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY instead of specifying an aws profile.
 EOF
   exit
 }
@@ -62,6 +63,7 @@ parse_params() {
   code=''
   wo_mfa_profile=''
   mfa_profile="${AWS_PROFILE-}"
+  read_env=""
 
   _VERBOSE_=''
 
@@ -86,6 +88,7 @@ parse_params() {
       mfa_profile="${2-}"
       shift
       ;;
+    --env) read_env=1 ;;
     -?*) die "Unknown option: $1" ;;
     *) break ;;
     esac
@@ -95,6 +98,20 @@ parse_params() {
 
   if [[ -z "${mfa_profile:-}" ]]; then
     die "Missing required parameter: --mfa-profile or AWS_PROFILE env"
+  fi
+
+  if [[ -n "$read_env" ]] && [[ -n "${wo_mfa_profile}" ]]; then
+    die "Conflicted parameters: --env and --without-mfa-profile cannot be specified together"
+  fi
+
+  if [[ -n "$read_env" ]]; then
+    if [[ -z "${AWS_ACCESS_KEY_ID-}" ]]; then
+      die "Missing environment variable: AWS_ACCESS_KEY_ID is required when --env is specified."
+    fi
+
+    if [[ -z "${AWS_SECRET_ACCESS_KEY-}" ]]; then
+      die "Missing environment variable: AWS_SECRET_ACCESS_KEY is required when --env is specified."
+    fi
   fi
 
   if ((${minutes:-0} < 30)) || ((${minutes:-0} > 120)); then
@@ -115,28 +132,52 @@ parse_params() {
 parse_params "$@"
 setup_colors
 
+if [[ -n "$read_env" ]]; then
+  tmp_key_id="${AWS_ACCESS_KEY_ID-}"
+  tmp_secret_key="${AWS_SECRET_ACCESS_KEY-}"
+fi
+
 # shellcheck disable=SC2046
 unset $(env | grep -E '^AWS_' | awk -F= '$0=$1')
 
-if [[ -z "${wo_mfa_profile-}" ]]; then
-  wo_mfa_profile="$mfa_profile-without-mfa"
+if [[ -n "${tmp_key_id-}" ]] && [[ -n "${tmp_secret_key-}" ]]; then
+  export AWS_ACCESS_KEY_ID="$tmp_key_id"
+  export AWS_SECRET_ACCESS_KEY="$tmp_secret_key"
+  unset tmp_key_id tmp_secret_key
 fi
 
+aws_cli_options=()
+
+if [[ -z "$read_env" ]]; then
+  if [[ -z "${wo_mfa_profile-}" ]]; then
+    aws_cli_options+=("--profile" "$mfa_profile-without-mfa")
+  else
+    aws_cli_options+=("--profile" "$wo_mfa_profile")
+  fi
+fi
+
+env|grep AWS_
+echo "${aws_cli_options[@]}"
+
 virtual_serial_arn=''
-virtual_serial_arn="$(aws iam get-user --output json --profile "$wo_mfa_profile" | jq -r '.User.Arn' | sed -e 's/:user\//:mfa\//')"
+virtual_serial_arn="$(aws iam get-user --output json "${aws_cli_options[@]}" | jq -r '.User.Arn' | sed -e 's/:user\//:mfa\//')"
 
 if [[ -z "$virtual_serial_arn" ]]; then
   die "Cannot get the ARN of your virtual device."
 fi
 
+if [[ -n "${_VERBOSE_-}" ]]; then
+  aws_cli_options+=(--debug)
+fi
+
+aws_cli_options+=(--output json)
+aws_cli_options+=(--duration-seconds "$((minutes * 60))")
+aws_cli_options+=(--serial-number "$virtual_serial_arn")
+aws_cli_options+=(--token-code "$code" )
+
 aws \
   sts \
   get-session-token \
-  ${_VERBOSE_:+--debug} \
-  --output json \
-  --profile "$wo_mfa_profile" \
-  --duration-seconds "$((minutes * 60))" \
-  --serial-number "$virtual_serial_arn" \
-  --token-code "$code" | \
+  "${aws_cli_options[@]}" | \
   jq -r '"aws_access_key_id " + .Credentials.AccessKeyId, "aws_secret_access_key " + .Credentials.SecretAccessKey, "aws_session_token " + .Credentials.SessionToken, "expiration_date " + .Credentials.Expiration' | \
   xargs -n2 aws configure --profile "$mfa_profile" set
