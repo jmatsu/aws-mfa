@@ -156,9 +156,6 @@ if [[ -z "$read_env" ]]; then
   fi
 fi
 
-env|grep AWS_
-echo "${aws_cli_options[@]}"
-
 virtual_serial_arn=''
 virtual_serial_arn="$(aws iam get-user --output json "${aws_cli_options[@]}" | jq -r '.User.Arn' | sed -e 's/:user\//:mfa\//')"
 
