@@ -20,7 +20,6 @@ Options:
 --mfa-profile          A aws profile that will have a new session.
 --without-mfa-profile  A aws profile used to issue a new session.
 --env                  Specify this if you would like to to use AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY instead of specifying an aws profile.
---shell-export         Specify this if you would like to print export statements instead of configuring profiles.
 EOF
   exit
 }
@@ -65,7 +64,6 @@ parse_params() {
   wo_mfa_profile=''
   mfa_profile="${AWS_PROFILE-}"
   read_env=""
-  shell_export=""
 
   _VERBOSE_=''
 
@@ -91,7 +89,6 @@ parse_params() {
       shift
       ;;
     --env) read_env=1 ;;
-    --shell-export) shell_export=1 ;;
     -?*) die "Unknown option: $1" ;;
     *) break ;;
     esac
@@ -99,7 +96,7 @@ parse_params() {
     shift
   done
 
-  if [[ -z "$shell_export" ]] && [[ -z "${mfa_profile:-}" ]]; then
+  if [[ -z "${mfa_profile:-}" ]]; then
     die "Missing required parameter: --mfa-profile or AWS_PROFILE env"
   fi
 
@@ -137,7 +134,7 @@ setup_colors
 
 if [[ -n "$read_env" ]]; then
   tmp_key_id="${AWS_ACCESS_KEY_ID-}"
-  tmp_secret_key="${AWS_SECRET_ACCESS_KEY}"
+  tmp_secret_key="${AWS_SECRET_ACCESS_KEY-}"
 fi
 
 # shellcheck disable=SC2046
@@ -159,6 +156,9 @@ if [[ -z "$read_env" ]]; then
   fi
 fi
 
+env|grep AWS_
+echo "${aws_cli_options[@]}"
+
 virtual_serial_arn=''
 virtual_serial_arn="$(aws iam get-user --output json "${aws_cli_options[@]}" | jq -r '.User.Arn' | sed -e 's/:user\//:mfa\//')"
 
@@ -175,17 +175,9 @@ aws_cli_options+=(--duration-seconds "$((minutes * 60))")
 aws_cli_options+=(--serial-number "$virtual_serial_arn")
 aws_cli_options+=(--token-code "$code" )
 
-if [[ -n "$shell_export" ]]; then
-  aws \
-    sts \
-    get-session-token \
-    "${aws_cli_options[@]}" | \
-    jq -r '"export AWS_ACCESS_KEY_ID=" + .Credentials.AccessKeyId + ";", "export AWS_SECRET_ACCESS_KEY=" + .Credentials.SecretAccessKey + ";", "export AWS_SESSION_TOKEN=" + .Credentials.SessionToken, "expiration_date " + .Credentials.Expiration + ";"'
-else
-  aws \
-    sts \
-    get-session-token \
-    "${aws_cli_options[@]}" | \
-    jq -r '"aws_access_key_id " + .Credentials.AccessKeyId, "aws_secret_access_key " + .Credentials.SecretAccessKey, "aws_session_token " + .Credentials.SessionToken, "expiration_date " + .Credentials.Expiration' | \
-    xargs -n2 aws configure --profile "$mfa_profile" set
-fi
+aws \
+  sts \
+  get-session-token \
+  "${aws_cli_options[@]}" | \
+  jq -r '"aws_access_key_id " + .Credentials.AccessKeyId, "aws_secret_access_key " + .Credentials.SecretAccessKey, "aws_session_token " + .Credentials.SessionToken, "expiration_date " + .Credentials.Expiration' | \
+  xargs -n2 aws configure --profile "$mfa_profile" set
