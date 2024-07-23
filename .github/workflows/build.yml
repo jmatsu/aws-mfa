@@ -41,10 +41,15 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: ./go.mod
       - uses: reviewdog/action-golangci-lint@v2
+        with:
+          cache: false # Use setup-go's cache
+          go-version-file: ./go.mod
 
   go-releaser:
     timeout-minutes: 10
