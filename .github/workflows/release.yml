@@ -1,0 +1,45 @@
+name: Release artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  go-releaser:
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+      - uses: goreleaser/goreleaser-action@v5
+        if: >
+          startsWith( github.ref, 'refs/tags/v' )
+        with:
+          distribution: goreleaser
+          version: 2.1.0
+          args: release --rm-dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: goreleaser/goreleaser-action@v5
+        if: >
+          !startsWith( github.ref, 'refs/tags/v' )
+        with:
+          distribution: goreleaser
+          version: 2.1.0
+          args: release --rm-dist --snapshot
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
