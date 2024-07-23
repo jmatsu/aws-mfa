@@ -63,7 +63,7 @@ parse_params() {
   code=''
   wo_mfa_profile=''
   mfa_profile="${AWS_PROFILE-}"
-  read_env=""
+  read_env=''
 
   _VERBOSE_=''
 
@@ -132,49 +132,44 @@ parse_params() {
 parse_params "$@"
 setup_colors
 
-if [[ -n "$read_env" ]]; then
-  tmp_key_id="${AWS_ACCESS_KEY_ID-}"
-  tmp_secret_key="${AWS_SECRET_ACCESS_KEY-}"
+# We don't want cli to evaluate these variables.
+unset AWS_PROFILE AWS_SESSION_TOKEN
+
+common_options=()
+
+if [[ -n "${_VERBOSE_-}" ]]; then
+  common_options+=(--debug)
 fi
 
-# shellcheck disable=SC2046
-unset $(env | grep -E '^AWS_' | awk -F= '$0=$1')
-
-if [[ -n "${tmp_key_id-}" ]] && [[ -n "${tmp_secret_key-}" ]]; then
-  export AWS_ACCESS_KEY_ID="$tmp_key_id"
-  export AWS_SECRET_ACCESS_KEY="$tmp_secret_key"
-  unset tmp_key_id tmp_secret_key
-fi
-
-aws_cli_options=()
+mfa_options=(--profile "$mfa_profile")
+without_mfa_options=()
 
 if [[ -z "$read_env" ]]; then
   if [[ -z "${wo_mfa_profile-}" ]]; then
-    aws_cli_options+=("--profile" "$mfa_profile-without-mfa")
+    without_mfa_options+=("--profile" "$mfa_profile-without-mfa")
   else
-    aws_cli_options+=("--profile" "$wo_mfa_profile")
+    without_mfa_options+=("--profile" "$wo_mfa_profile")
   fi
 fi
 
 virtual_serial_arn=''
-virtual_serial_arn="$(aws iam get-user --output json "${aws_cli_options[@]}" | jq -r '.User.Arn' | sed -e 's/:user\//:mfa\//')"
+virtual_serial_arn="$(aws iam get-user --output json "${without_mfa_options[@]}" | jq -r '.User.Arn' | sed -e 's/:user\//:mfa\//')"
 
 if [[ -z "$virtual_serial_arn" ]]; then
   die "Cannot get the ARN of your virtual device."
 fi
 
-if [[ -n "${_VERBOSE_-}" ]]; then
-  aws_cli_options+=(--debug)
-fi
-
-aws_cli_options+=(--output json)
-aws_cli_options+=(--duration-seconds "$((minutes * 60))")
-aws_cli_options+=(--serial-number "$virtual_serial_arn")
-aws_cli_options+=(--token-code "$code" )
-
 aws \
   sts \
   get-session-token \
-  "${aws_cli_options[@]}" | \
+  "${common_options[@]}" \
+  "${without_mfa_options[@]}" \
+  --output json \
+  --duration-seconds "$((minutes * 60))" \
+  --serial-number "$virtual_serial_arn" \
+  --token-code "$code" | \
   jq -r '"aws_access_key_id " + .Credentials.AccessKeyId, "aws_secret_access_key " + .Credentials.SecretAccessKey, "aws_session_token " + .Credentials.SessionToken, "expiration_date " + .Credentials.Expiration' | \
-  xargs -n2 aws configure --profile "$mfa_profile" set
+    xargs -n2 aws configure \
+      "${common_options[@]}" \
+      "${mfa_options[@]}" \
+      set
