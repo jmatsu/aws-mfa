@@ -29,7 +29,7 @@ jobs:
         with:
           distribution: goreleaser
           version: 2.1.0
-          args: release --rm-dist
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: goreleaser/goreleaser-action@v6
@@ -38,7 +38,7 @@ jobs:
         with:
           distribution: goreleaser
           version: 2.1.0
-          args: release --rm-dist --snapshot
+          args: release --clean --snapshot
       - uses: actions/upload-artifact@v4
         with:
           name: dist
