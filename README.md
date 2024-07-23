@@ -4,6 +4,12 @@ A command to issue a new session token with mfa device authentication.
 
 ## Installation
 
+*Recommended*
+
+Download a binary from GitHub Release.
+
+*Alternative*
+
 ```bash
 go install github.com/jmatsu/aws-mfa@latest
 ```
