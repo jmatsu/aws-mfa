@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: ./go.mod
-      - uses: goreleaser/goreleaser-action@v5
+      - uses: goreleaser/goreleaser-action@v6
         if: >
           startsWith( github.ref, 'refs/tags/v' )
         with:
@@ -32,7 +32,7 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: goreleaser/goreleaser-action@v5
+      - uses: goreleaser/goreleaser-action@v6
         if: >
           !startsWith( github.ref, 'refs/tags/v' )
         with:
