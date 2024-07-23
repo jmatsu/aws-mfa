@@ -16,8 +16,8 @@ Options:
 -h, --help             Print this help and exit
 -v, --verbose          Print script debug info
 -c, --code             Provide an OTP code.
--m, --minutes          Specify how may minues a new session works.
---mfa-profile          A aws profile that will have a new session.
+-m, --minutes          Specify how may minues a new session works. (SESSION_TOKEN_MINUTES)
+--mfa-profile          A aws profile that will have a new session. (AWS_PROFILE)
 --without-mfa-profile  A aws profile used to issue a new session.
 --env                  Specify this if you would like to to use AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY instead of specifying an aws profile.
 EOF
@@ -59,7 +59,7 @@ die() {
 }
 
 parse_params() {
-  minutes='60'
+  minutes="${SESSION_TOKEN_MINUTES-60}"
   code=''
   wo_mfa_profile=''
   mfa_profile="${AWS_PROFILE-}"
@@ -114,8 +114,8 @@ parse_params() {
     fi
   fi
 
-  if ((${minutes:-0} < 30)) || ((${minutes:-0} > 120)); then
-    die "--minutes must be positive number and less than 120"
+  if (($minutes < 15)) || (($minutes > 2160)); then
+    die "--minutes must be from 15 mins to 2160 mins (36 hours)"
   fi
 
   if [[ -z "$code" ]]; then
