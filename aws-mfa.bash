@@ -20,6 +20,7 @@ Options:
 --mfa-profile          A aws profile that will have a new session. (AWS_PROFILE)
 --without-mfa-profile  A aws profile used to issue a new session.
 --env                  Specify this if you would like to to use AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY instead of specifying an aws profile.
+--device-arn           An ARN of a virtual/phisical MFA device. (MFA_DEVICE)
 EOF
   exit
 }
@@ -64,6 +65,7 @@ parse_params() {
   wo_mfa_profile=''
   mfa_profile="${AWS_PROFILE-}"
   read_env=''
+  device_arn="${MFA_DEVICE-}"
 
   _VERBOSE_=''
 
@@ -89,6 +91,10 @@ parse_params() {
       shift
       ;;
     --env) read_env=1 ;;
+    --device-arn)
+      device_arn="${2-}"
+      shift
+      ;;
     -?*) die "Unknown option: $1" ;;
     *) break ;;
     esac
@@ -152,10 +158,11 @@ if [[ -z "$read_env" ]]; then
   fi
 fi
 
-virtual_serial_arn=''
-virtual_serial_arn="$(aws iam get-user --output json "${without_mfa_options[@]}" | jq -r '.User.Arn' | sed -e 's/:user\//:mfa\//')"
+if [[ -z "$device_arn" ]]; then
+  device_arn="$(aws iam get-user --output json "${without_mfa_options[@]}" | jq -r '.User.Arn' | sed -e 's/:user\//:mfa\//')"
+fi
 
-if [[ -z "$virtual_serial_arn" ]]; then
+if [[ -z "$device_arn" ]]; then
   die "Cannot get the ARN of your virtual device."
 fi
 
@@ -166,7 +173,7 @@ aws \
   "${without_mfa_options[@]}" \
   --output json \
   --duration-seconds "$((minutes * 60))" \
-  --serial-number "$virtual_serial_arn" \
+  --serial-number "$device_arn" \
   --token-code "$code" | \
   jq -r '"aws_access_key_id " + .Credentials.AccessKeyId, "aws_secret_access_key " + .Credentials.SecretAccessKey, "aws_session_token " + .Credentials.SessionToken, "expiration_date " + .Credentials.Expiration' | \
     xargs -n2 aws configure \
