@@ -19,6 +19,7 @@ Options:
 --mfa-profile          A aws profile that will have a new session.
 --without-mfa-profile  A aws profile used to issue a new session.
 --env                  Specify this if you would like to to use AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY instead of specifying an aws profile.
+--device-arn           An ARN of a virtual/phisical MFA device. (MFA_DEVICE)
 ```
 
 --mfa-profile | --without-mfa-profile | A profile to issue a new session
