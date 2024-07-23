@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/jmatsu/aws-mfa/internal"
 	"log/slog"
 	"os"
 	"regexp"
@@ -17,8 +18,11 @@ func main() {
 	codeRegexp := regexp.MustCompile("^\\d{6}$")
 
 	app := &cli.App{
-		Name:  "aws-mfa",
-		Usage: "Issue a new session with MFA devices.",
+		Name:      "aws-mfa",
+		Version:   fmt.Sprintf("%s (git revision %s)", internal.Version, internal.Commit),
+		Copyright: "Jumpei Matsuda (@jmatsu)",
+		Compiled:  internal.CompiledAt,
+		Usage:     "Issue a new session with MFA devices.",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name: "log-format",
