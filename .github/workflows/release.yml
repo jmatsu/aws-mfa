@@ -39,7 +39,7 @@ jobs:
           distribution: goreleaser
           version: 2.1.0
           args: release --clean --snapshot
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist/*
